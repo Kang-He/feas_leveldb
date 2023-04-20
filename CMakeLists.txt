@@ -290,6 +290,11 @@ add_executable(leveldbutil
 )
 target_link_libraries(leveldbutil leveldb)
 
+# Executable for merge_test
+add_executable(merge_test "merge_test/merge_test.cc")
+target_link_libraries(merge_test leveldb)
+
+
 if(LEVELDB_BUILD_TESTS)
   enable_testing()
 
