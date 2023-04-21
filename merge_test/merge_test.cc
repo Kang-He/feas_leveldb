@@ -10,6 +10,9 @@
 #include <random>
 #include <sstream>
 #include <chrono>
+#include <map>
+#include <string>
+#include <iomanip>
 
 #include "db/builder.h"
 
@@ -24,6 +27,7 @@
 #include "table/format.h"
 #include "util/coding.h"
 #include "util/logging.h"
+//#include "merge_test/fix_table_builder.cc"
 using namespace std;
 using namespace leveldb;
 namespace leveldb {
@@ -83,41 +87,115 @@ class TestIter : public Iterator {
 };
 
 
-Status BuildTable(const std::string& dbname, Env* env, const Options& options,
+
+class TimeRecorder {
+public:
+    enum Operation {
+        READ,
+        CRC,
+        DECOMP,
+        SORT,
+        COMP,
+        RE_CRC,
+        WRITE,
+        NUM_OPERATIONS
+    };
+
+private:
+    std::map<Operation, std::chrono::duration<double>> durations_;
+    std::chrono::time_point<std::chrono::steady_clock> start_time_;
+
+public:
+    TimeRecorder() {
+        for (int i = 0; i < NUM_OPERATIONS; ++i) {
+            durations_[static_cast<Operation>(i)] = std::chrono::duration<double>::zero();
+        }
+    }
+
+    void start() {
+        start_time_ = std::chrono::steady_clock::now();
+    }
+
+    void stop(Operation op) {
+        auto end_time = std::chrono::steady_clock::now();
+        durations_[op] += end_time - start_time_;
+    }
+
+    void print_durations() {
+        static const std::map<Operation, std::string> operation_names = {
+            {READ, "Read"},
+            {CRC, "Checksum"},
+            {DECOMP, "Decompression"},
+            {SORT, "Sort"},
+            {COMP, "Compression"},
+            {RE_CRC, "Re-Checksum"},
+            {WRITE, "Write"}
+        };
+
+        auto total_duration = std::chrono::duration<double>::zero();
+        for (const auto& duration : durations_) {
+            total_duration += duration.second;
+        }
+
+        for (const auto& duration : durations_) {
+            std::cout << operation_names.at(duration.first) << " time: " << duration.second.count() << "s"
+                      << " percentage: " << std::fixed << std::setprecision(2)
+                      << (duration.second.count() / total_duration.count()) * 100 << "%" << std::endl;
+        }
+    }
+};
+
+
+
+
+}
+//全局公用变量
+std::string dbname = "C:/Users/86158/Desktop/Code/LSM/dbData";
+Env* env = Env::Default();
+Options options;
+TableCache* table_cache = new TableCache(dbname, options, 100000);
+TimeRecorder t_recorder;
+
+Status MyBuildTable(const std::string& dbname, Env* env, const Options& options,
                   TableCache* table_cache, Iterator* iter, FileMetaData* meta) {
     Status s;
     meta->file_size = 0;
     iter->SeekToFirst();
-    // cout << "iter->Valid() = " << iter->Valid() << endl;
-    // cout << "iter->key() = " << iter->key().ToString() << endl;
-    // cout << "iter->value() = " << iter->value().ToString() << endl;
     std::string fname = TableFileName(dbname, meta->number);
     cout << "fname = " << fname << endl;
     if (iter->Valid()) {
+        //开始计时
+        t_recorder.start();
+
         WritableFile* file;
         s = env->NewWritableFile(fname, &file);
         if (!s.ok()) {
         return s;
         }
-
         TableBuilder* builder = new TableBuilder(options, file);
         meta->smallest.DecodeFrom(iter->key());
         Slice key;
         for (; iter->Valid(); iter->Next()) {
-        key = iter->key();
-        builder->Add(key, iter->value());
+            key = iter->key();
+            builder->Add(key, iter->value());
         }
         if (!key.empty()) {
-        meta->largest.DecodeFrom(key);
+            meta->largest.DecodeFrom(key);
         }
 
         // Finish and check for builder errors
         s = builder->Finish();
+
+        //停止计时
+        t_recorder.stop(TimeRecorder::Operation::COMP);
         if (s.ok()) {
         meta->file_size = builder->FileSize();
         assert(meta->file_size > 0);
         }
         delete builder;
+
+        //开始计时
+        t_recorder.start();
 
         // Finish and check for file errors
         if (s.ok()) {
@@ -128,7 +206,8 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
         }
         delete file;
         file = nullptr;
-
+        //停止计时
+        t_recorder.stop(TimeRecorder::Operation::WRITE);
         if (s.ok()) {
         // Verify that the table is usable
         Iterator* it = table_cache->NewIterator(ReadOptions(), meta->number,
@@ -152,13 +231,6 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
 }
 
 
-
-}
-//全局公用变量
-std::string dbname = "C:/Users/86158/Desktop/Code/LSM/dbData";
-Env* env = Env::Default();
-Options options;
-TableCache* table_cache = new TableCache(dbname, options, 100000);
 // Add this function to generate random key-value pairs
 vector<pair<string, string>> generate_random_kv_pairs(int num_entries, int kv_length) {
   vector<pair<string, string>> kv_pairs;
@@ -197,7 +269,7 @@ void build_table_with_random_kv_pairs(int num_entries, int kv_length, const std:
   meta->number = meta_number;
 
   // 构建表格
-  leveldb::BuildTable(dbname, env, options, table_cache, iter, meta);
+  MyBuildTable(dbname, env, options, table_cache, iter, meta);
 }
 
 void build_table_with_kv_pairs(Iterator* iter, const std::string& dbname, uint64_t meta_number) {
@@ -207,7 +279,7 @@ void build_table_with_kv_pairs(Iterator* iter, const std::string& dbname, uint64
   meta->number = meta_number;
 
   // 构建表格
-  leveldb::BuildTable(dbname, env, options, table_cache, iter, meta);
+  MyBuildTable(dbname, env, options, table_cache, iter, meta);
 }
 
 inline Iterator* read_sst_file(const std::string& dbname, const std::string& file_name, leveldb::Table* table) {
@@ -271,82 +343,70 @@ TestIter* merge_iterators(Iterator* iter1, Iterator* iter2) {
 
   return new TestIter(merged_data);
 }
-#include <iostream>
-#include <chrono>
 
-// ... (其他必要的包含和定义) ...
+
+void generate_two_sst_files(int num_entries, int kv_length) {
+    // 生成第一个SST文件
+    uint64_t meta_number = 1;
+    build_table_with_random_kv_pairs(num_entries, kv_length, dbname, meta_number);
+    cout << "build table 1" << endl;
+
+    // 生成第二个SST文件
+    meta_number = 2;
+    build_table_with_random_kv_pairs(num_entries, kv_length, dbname, meta_number);
+    cout << "build table 2" << endl;
+}
+
 
 int main() {
     using namespace std::chrono;
+    
+    //test_hello();
 
     std::cout << "Hello World" << std::endl;
     int num_entries = 1000;
     int kv_length = 64;
 
-    //生成第一个SST文件
-    uint64_t meta_number = 1;
-    build_table_with_random_kv_pairs(num_entries, kv_length, dbname, meta_number);
-    cout << "build table 1" << endl;
+    // 生成2个SST文件
+    generate_two_sst_files(num_entries, kv_length);
+    
 
-    //生成第二个SST文件
-    meta_number = 2;
-    build_table_with_random_kv_pairs(num_entries, kv_length, dbname, meta_number);
-    cout << "build table 2" << endl;
+    // 开始计时
+    t_recorder.start();
 
-    // Start timing
-    auto start = high_resolution_clock::now();
-
-    // Read the first SST file
+    // 读取第一个SST文件
     leveldb::Table* table1 = nullptr;
     Iterator* iter1 = read_sst_file(dbname, "000001.ldb", table1);
 
-    // End timing and calculate duration
-    auto end = high_resolution_clock::now();
-    auto read1_duration = duration_cast<microseconds>(end - start).count();
-    std::cout << "Read the first SST file in: " << read1_duration << " microseconds" << std::endl;
+    // 结束计时并记录时间
+    t_recorder.stop(TimeRecorder::READ);
 
-    // Start timing
-    start = high_resolution_clock::now();
+    // 开始计时
+    t_recorder.start();
 
-    // Read the second SST file
+    // 读取第二个SST文件
     leveldb::Table* table2 = nullptr;
     Iterator* iter2 = read_sst_file(dbname, "000002.ldb", table2);
 
-    // End timing and calculate duration
-    end = high_resolution_clock::now();
-    auto read2_duration = duration_cast<microseconds>(end - start).count();
-    std::cout << "Read the second SST file in: " << read2_duration << " microseconds" << std::endl;
+    // 结束计时并记录时间
+    t_recorder.stop(TimeRecorder::READ);
 
-    // Merge the two SST files
-    // Start timing
-    start = high_resolution_clock::now();
+    // 合并两个SST文件
+    // 开始计时
+    t_recorder.start();
 
     TestIter* merged_iter = merge_iterators(iter1, iter2);
 
-    // End timing and calculate duration
-    end = high_resolution_clock::now();
-    auto merge_duration = duration_cast<microseconds>(end - start).count();
-    std::cout << "Merge the two SST files in: " << merge_duration << " microseconds" << std::endl;
+    // 结束计时并记录时间
+    t_recorder.stop(TimeRecorder::SORT);
 
-    // Output the merged SST file
-    // Start timing
-    start = high_resolution_clock::now();
-
+    // 输出合并后的SST文件
     build_table_with_kv_pairs(merged_iter, dbname, 3);
 
-    // End timing and calculate duration
-    end = high_resolution_clock::now();
-    auto build_duration = duration_cast<microseconds>(end - start).count();
-    std::cout << "Output the merged SST file in: " << build_duration << " microseconds" << std::endl;
+    // 输出时间记录
+    t_recorder.print_durations();
 
-    // Calculate total duration and percentage
-    auto total_duration = read1_duration + read2_duration + merge_duration + build_duration;
-    std::cout << "Total duration: " << total_duration << " microseconds" << std::endl;
-    std::cout << "Read SST files percentage: " << (static_cast<double>(read1_duration + read2_duration) / total_duration) * 100 << "%\n";
-    std::cout << "Merge the two SST files percentage: " << (static_cast<double>(merge_duration) / total_duration) * 100 << "%" << std::endl;
-    std::cout << "Output the merged SST file percentage: " << (static_cast<double>(build_duration) / total_duration) * 100 << "%" << std::endl;
-
-    // Free memory
+    // 释放内存
     delete iter1;
     delete table1;
     delete iter2;
