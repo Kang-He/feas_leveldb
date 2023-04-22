@@ -10,21 +10,25 @@
 // non-const method, all threads accessing the same TableBuilder must use
 // external synchronization.
 
-#ifndef STORAGE_LEVELDB_INCLUDE_TABLE_BUILDER_H_
-#define STORAGE_LEVELDB_INCLUDE_TABLE_BUILDER_H_
+#ifndef STORAGE_LEVELDB_MERGE_TEST_FIX_TABLE_BUILDER_H_
+#define STORAGE_LEVELDB_MERGE_TEST_FIX_TABLE_BUILDER_H_
 
 #include <cstdint>
 
 #include "leveldb/export.h"
 #include "leveldb/options.h"
 #include "leveldb/status.h"
+#include "merge_test/fix_block_builder.h"
+#include "table/block_builder.h"
 
 namespace leveldb {
 
 class BlockBuilder;
 class BlockHandle;
 class WritableFile;
-
+// void test_hello() {
+//     std::cout << "Hello, hk!" << std::endl;
+// }
 class LEVELDB_EXPORT FixTableBuilder {
  public:
   // Create a builder that will store the contents of the table it is
@@ -82,6 +86,7 @@ class LEVELDB_EXPORT FixTableBuilder {
  private:
   bool ok() const { return status().ok(); }
   void WriteBlock(BlockBuilder* block, BlockHandle* handle);
+  void WriteBlock(FixBlockBuilder* block, BlockHandle* handle);
   void WriteRawBlock(const Slice& data, CompressionType, BlockHandle* handle);
 
   struct Rep;

@@ -141,6 +141,10 @@ struct LEVELDB_EXPORT Options {
   // Many applications will benefit from passing the result of
   // NewBloomFilterPolicy() here.
   const FilterPolicy* filter_policy = nullptr;
+
+  //fix_key_length, fix_value_length
+  // uint32_t key_length = 64;
+  // uint32_t value_length = 64;
 };
 
 // Options that control read operations

@@ -190,6 +190,15 @@ target_sources(leveldb
     "util/options.cc"
     "util/random.h"
     "util/status.cc"
+    "merge_test/fix_table_builder.cc"
+    "merge_test/fix_table_builder.h"
+    "merge_test/fix_block_builder.cc"
+    "merge_test/fix_block_builder.h"
+    "merge_test/fix_block.cc"
+    "merge_test/fix_block.h"
+    "merge_test/fix_table.cc"
+    "merge_test/fix_table.h"
+
     
 
   # Only CMake 3.3+ supports PUBLIC sources in targets exported by "install".

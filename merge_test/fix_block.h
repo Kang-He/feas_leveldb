@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#ifndef STORAGE_LEVELDB_TABLE_BLOCK_H_
-#define STORAGE_LEVELDB_TABLE_BLOCK_H_
+#ifndef STORAGE_LEVELDB_MERGE_TEST_FIX_BLOCK_H_
+#define STORAGE_LEVELDB_MERGE_TEST_FIX_BLOCK_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -15,15 +15,15 @@ namespace leveldb {
 struct BlockContents;
 class Comparator;
 
-class Block {
+class FixBlock {
  public:
   // Initialize the block with the specified contents.
-  explicit Block(const BlockContents& contents);
+  explicit FixBlock(const BlockContents& contents);
 
-  Block(const Block&) = delete;
-  Block& operator=(const Block&) = delete;
+  FixBlock(const FixBlock&) = delete;
+  FixBlock& operator=(const FixBlock&) = delete;
 
-  ~Block();
+  ~FixBlock();
 
   size_t size() const { return size_; }
   Iterator* NewIterator(const Comparator* comparator);
@@ -35,7 +35,8 @@ class Block {
 
   const char* data_;
   size_t size_;
-  uint32_t restart_offset_;  // Offset in data_ of restart array
+  uint32_t key_length_;  
+  uint32_t value_length_;
   bool owned_;               // Block owns data_[]
 };
 

@@ -13,16 +13,16 @@ using namespace std;
 #include "leveldb/env.h"
 #include "leveldb/filter_policy.h"
 #include "leveldb/options.h"
+#include "merge_test/fix_block_builder.h"
 #include "table/block_builder.h"
+#include "table/block.h"
 #include "table/filter_block.h"
 #include "table/format.h"
 #include "util/coding.h"
 #include "util/crc32c.h"
 
 namespace leveldb {
-void test_hello() {
-    std::cout << "Hello, hk!" << std::endl;
-}
+
 
 struct FixTableBuilder::Rep {
   Rep(const Options& opt, WritableFile* f)
@@ -46,7 +46,7 @@ struct FixTableBuilder::Rep {
   WritableFile* file;
   uint64_t offset;
   Status status;
-  BlockBuilder data_block;
+  FixBlockBuilder data_block;
   BlockBuilder index_block;
   std::string last_key;
   int64_t num_entries;
@@ -193,6 +193,57 @@ void FixTableBuilder::WriteBlock(BlockBuilder* block, BlockHandle* handle) {
   r->compressed_output.clear();
   block->Reset();
 }
+
+void FixTableBuilder::WriteBlock(FixBlockBuilder* block, BlockHandle* handle) {
+  // File format contains a sequence of blocks where each block has:
+  //    block_data: uint8[n]
+  //    type: uint8
+  //    crc: uint32
+  assert(ok());
+  Rep* r = rep_;
+  Slice raw = block->Finish();
+
+  Slice block_contents;
+  CompressionType type = r->options.compression;
+  // TODO(postrelease): Support more compression options: zlib?
+  switch (type) {
+    case kNoCompression:
+      block_contents = raw;
+      break;
+
+    case kSnappyCompression: {
+      std::string* compressed = &r->compressed_output;
+      if (port::Snappy_Compress(raw.data(), raw.size(), compressed) &&
+          compressed->size() < raw.size() - (raw.size() / 8u)) {
+        block_contents = *compressed;
+      } else {
+        // Snappy not supported, or compressed less than 12.5%, so just
+        // store uncompressed form
+        block_contents = raw;
+        type = kNoCompression;
+      }
+      break;
+    }
+
+    case kZstdCompression: {
+      std::string* compressed = &r->compressed_output;
+      if (port::Zstd_Compress(raw.data(), raw.size(), compressed) &&
+          compressed->size() < raw.size() - (raw.size() / 8u)) {
+        block_contents = *compressed;
+      } else {
+        // Zstd not supported, or compressed less than 12.5%, so just
+        // store uncompressed form
+        block_contents = raw;
+        type = kNoCompression;
+      }
+      break;
+    }
+  }
+  WriteRawBlock(block_contents, type, handle);
+  r->compressed_output.clear();
+  block->Reset();
+}
+
 
 void FixTableBuilder::WriteRawBlock(const Slice& block_contents,
                                  CompressionType type, BlockHandle* handle) {
