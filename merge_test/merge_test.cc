@@ -25,10 +25,13 @@
 #include "leveldb/iterator.h"
 #include "leveldb/comparator.h"
 #include "table/format.h"
+#include "table/block.h"
 #include "util/coding.h"
 #include "util/logging.h"
 #include "merge_test/fix_table_builder.h"
 #include "merge_test/fix_table.h"
+//#include "merge_test/fix_table.cc"
+#include "merge_test/fix_block.h"
 
 #include "merge_test/util.cc"
 using namespace std;
@@ -40,12 +43,32 @@ public:
         FixedLength,
         VariableLength
     };
+    
+	// struct Rep {
+    //   ~Rep() {
+    //     delete filter;
+    //     delete[] filter_data;
+    //     delete index_block;
+    //   }
 
-    SSTMergeTester(int num_entries, int kv_length, SSTType sst_type)
+    //   Options options;
+    //   Status status;
+    //   RandomAccessFile* file;
+    //   uint64_t cache_id;
+    //   FilterBlockReader* filter;
+    //   const char* filter_data;
+
+    //   BlockHandle
+    //       metaindex_handle;  // Handle to metaindex_block: saved from footer
+    //   Block* index_block;
+    // };
+
+
+    SSTMergeTester(std::string dbname, int num_entries, int kv_length, SSTType sst_type)
         : num_entries_(num_entries),
             kv_length_(kv_length),
             sst_type_(sst_type),
-            dbname_("C:/Users/86158/Desktop/Code/LSM/dbData"),
+            dbname_(dbname),
             env_(Env::Default()),
             options_(),
             table_cache_(new TableCache(dbname_, options_, 100000)),
@@ -94,6 +117,54 @@ public:
         delete merged_iter;
         //test_merge_process(num_entries_, kv_length_);
     }
+    // //打开SST文件
+    // Status Open(const Options& options, RandomAccessFile* file,
+    //                       uint64_t size, FixTable** fixtable) {
+    //   *fixtable = nullptr;
+    //   if (size < Footer::kEncodedLength) {
+    //     return Status::Corruption("file is too short to be an sstable");
+    //   }
+
+    //   char footer_space[Footer::kEncodedLength];
+    //   Slice footer_input;
+    //   Status s =
+    //       file->Read(size - Footer::kEncodedLength, Footer::kEncodedLength,
+    //                  &footer_input, footer_space);
+    //   if (!s.ok()) return s;
+
+    //   Footer footer;
+    //   s = footer.DecodeFrom(&footer_input);
+    //   if (!s.ok()) return s;
+
+    //   // Read the index block
+    //   BlockContents index_block_contents;
+    //   ReadOptions opt;
+    //   if (options.paranoid_checks) {
+    //     opt.verify_checksums = true;
+    //   }
+    //   s = ReadBlock(file, opt, footer.index_handle(), &index_block_contents);
+
+    //   if (s.ok()) {
+    //     // We've successfully read the footer and the index block: we're
+    //     // ready to serve requests.
+    //     Block* index_block = new Block(index_block_contents);
+    //     //FixTable *temp = new FixTable();
+    //     FixTable::Rep* rep = new FixTable::Rep;
+    //     rep->options = options;
+    //     rep->file = file;
+    //     rep->metaindex_handle = footer.metaindex_handle();
+    //     rep->index_block = index_block;
+    //     rep->cache_id =
+    //         (options.block_cache ? options.block_cache->NewId() : 0);
+    //     rep->filter_data = nullptr;
+    //     rep->filter = nullptr;
+    //     *fixtable = new FixTable(rep);
+    //     (*fixtable)->ReadMeta(footer);
+    //   }
+
+    //   return s;
+    // }
+
 
 private:
     int num_entries_;
@@ -233,7 +304,10 @@ private:
         // 生成随机键值对
         vector<pair<string, string>> kv_pairs = generate_random_kv_pairs(num_entries, kv_length);
         sort(kv_pairs.begin(), kv_pairs.end());
-
+        // //输出键值对
+        // for(auto kv : kv_pairs){
+        //     cout << kv.first << " " << kv.second << endl;
+        // }
         // 将生成的键值对传递给TestIter
         Iterator* iter = new TestIter(kv_pairs);
 
@@ -254,6 +328,8 @@ private:
         // 构建表格
         MyBuildTable(dbname_, env_, options_, table_cache_, iter, meta);
     }
+
+    
 
     inline Iterator* read_sst_file(const std::string& dbname, const std::string& file_name) {
         std::string file_path = dbname + "/" + file_name;
@@ -286,10 +362,36 @@ private:
 // 函数：合并排序两个迭代器
     TestIter* merge_iterators(Iterator* iter1, Iterator* iter2) {
         std::vector<std::pair<std::string, std::string>> merged_data;
+        iter1->SeekToFirst();
+        iter2->SeekToFirst();
+        int i = 0;
+        // //输出iter1键值对
+        // i = 0;
+        // cout << "iter1 kvs:" << endl;
+        // while(iter1->Valid()){
+        //     i++;
+        //     cout << "i: " << i << " ";
+        //     cout << "key: " << iter1->key().ToString() << "value: " << iter1->value().ToString() << endl;
+        //     iter1->Next();
+        // }
+        // //输出iter2键值对
+        // i = 0;
+        // cout << "iter2 kvs:" << endl;
+        // while(iter2->Valid()){
+        //     i++;
+        //     cout << "i: " << i << " ";
+        //     cout << "key: " << iter2->key().ToString() << "value: " << iter2->value().ToString() << endl;
+        //     iter2->Next();
+        // }
 
         iter1->SeekToFirst();
         iter2->SeekToFirst();
+        i = 0;
         while (iter1->Valid() && iter2->Valid()) {
+            // i++;
+            // cout << "i: " << i << endl;
+            // cout << "key: " << iter1->key().ToString() << "value: " << iter1->value().ToString() << endl;
+            // cout << "key: " << iter2->key().ToString() << "value: " << iter2->value().ToString() << endl;
             int comp = iter1->key().compare(iter2->key());
             if (comp < 0) {
             merged_data.push_back({iter1->key().ToString(), iter1->value().ToString()});
@@ -329,9 +431,14 @@ private:
 };
 
 int main() {
-  //SSTMergeTester tester(1000, 64, SSTMergeTester::SSTType::VariableLength);
-  SSTMergeTester tester(1000, 64, SSTMergeTester::SSTType::FixedLength);
-  tester.TestMergeProcess();
+  int num_enties = 1000;
+  int kv_length = 64;
+  SSTMergeTester varTester("C:/Users/86158/Desktop/Code/LSM/dbData/varDB", num_enties, kv_length, SSTMergeTester::SSTType::VariableLength);
+  varTester.TestMergeProcess();
+
+  SSTMergeTester fixedTester("C:/Users/86158/Desktop/Code/LSM/dbData/fixedDB", num_enties, kv_length, SSTMergeTester::SSTType::FixedLength);
+  fixedTester.TestMergeProcess();
+  
   return 0;
 }
 

@@ -18,7 +18,7 @@ class Comparator;
 class FixBlock {
  public:
   // Initialize the block with the specified contents.
-  explicit FixBlock(const BlockContents& contents);
+  explicit FixBlock(const BlockContents& contents, uint32_t key_length, uint32_t value_length);
 
   FixBlock(const FixBlock&) = delete;
   FixBlock& operator=(const FixBlock&) = delete;

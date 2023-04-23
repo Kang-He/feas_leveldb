@@ -24,7 +24,7 @@ class IteratorWrapper {
   // Takes ownership of "iter" and will delete it when destroyed, or
   // when Set() is invoked again.
   void Set(Iterator* iter) {
-    delete iter_;
+    //delete iter_; //????
     iter_ = iter;
     if (iter_ == nullptr) {
       valid_ = false;

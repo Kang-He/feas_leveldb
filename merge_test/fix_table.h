@@ -58,13 +58,23 @@ class LEVELDB_EXPORT FixTable {
   // be close to the file length.
   uint64_t ApproximateOffsetOf(const Slice& key) const;
 
+  
+
  private:
   friend class TableCache;
+  //friend class SSTMergeTester;
+  //将这几个改成public就能使用时间记录
   struct Rep;
+  explicit FixTable(Rep* rep) : rep_(rep) {}
+  void ReadMeta(const Footer& footer);
+  
+  
+  
 
   static Iterator* BlockReader(void*, const ReadOptions&, const Slice&);
 
-  explicit FixTable(Rep* rep) : rep_(rep) {}
+  
+
 
   // Calls (*handle_result)(arg, ...) with the entry found after a call
   // to Seek(key).  May not make such a call if filter policy says
@@ -73,7 +83,7 @@ class LEVELDB_EXPORT FixTable {
                      void (*handle_result)(void* arg, const Slice& k,
                                            const Slice& v));
 
-  void ReadMeta(const Footer& footer);
+  
   void ReadFilter(const Slice& filter_handle_value);
 
   Rep* const rep_;

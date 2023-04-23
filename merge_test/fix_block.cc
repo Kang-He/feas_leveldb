@@ -22,10 +22,12 @@ inline uint32_t FixBlock::NumRestarts() const {
   return DecodeFixed32(data_ + size_ - sizeof(uint32_t));
 }
 
-FixBlock::FixBlock(const BlockContents& contents)
+FixBlock::FixBlock(const BlockContents& contents, uint32_t key_length, uint32_t value_length)
     : data_(contents.data.data()),
       size_(contents.data.size()),
-      owned_(contents.heap_allocated) {
+      owned_(contents.heap_allocated), 
+      key_length_(key_length),
+      value_length_(value_length){
   if (size_ < sizeof(uint32_t)) {
     size_ = 0;  // Error marker
   } 
@@ -77,8 +79,6 @@ class FixBlock::Iter : public Iterator {
 
   // current_ is offset in data_ of current entry.  >= size_ if !Valid
   uint32_t current_;
-  std::string key_;
-  Slice value_;
   Status status_;
 
   inline int Compare(const Slice& a, const Slice& b) const {
@@ -89,25 +89,8 @@ class FixBlock::Iter : public Iterator {
   inline uint32_t NextEntryOffset() const {
     return current_ + key_length_ + value_length_;
   }
-
-  void ParseNextKey() {
-    if (current_ < size_) {
-      key_ = std::string(data_ + current_, key_length_);
-      value_ = Slice(data_ + current_ + key_length_, value_length_);
-      current_ = NextEntryOffset();
-    } else {
-      current_ = size_;
-    }
-  }
-
-  void ParsePrevKey() {
-    if (current_ >= key_length_ + value_length_) {
-      current_ -= key_length_ + value_length_;
-      key_ = std::string(data_ + current_, key_length_);
-      value_ = Slice(data_ + current_ + key_length_, value_length_);
-    } else {
-      current_ = size_;
-    }
+  inline uint32_t LastEntryOffset() const {
+    return current_ - key_length_ - value_length_;
   }
 
  public:
@@ -120,35 +103,34 @@ class FixBlock::Iter : public Iterator {
         value_length_(value_length),
         num_entries_(num_entries),
         current_(0) {
-    ParseNextKey();
   }
 
   bool Valid() const override { return current_ < size_; }
   Status status() const override { return status_; }
   Slice key() const override {
     assert(Valid());
-    return key_;
+    return Slice(data_ + current_, key_length_);
   }
   Slice value() const override {
     assert(Valid());
-    return value_;
+    return Slice(data_ + current_ + key_length_, value_length_);
   }
 
   void Next() override {
     assert(Valid());
-    ParseNextKey();
+    current_ = NextEntryOffset();
   }
 
   void Prev() override {
     assert(Valid());
-    ParsePrevKey();
+    current_ = LastEntryOffset();
   }
 
   void Seek(const Slice& target) override {
     uint32_t left = 0;
-    uint32_t right = num_entries_ - 1;
+    uint32_t right = num_entries_;
 
-    while (left <= right) {
+    while (left < right) {
       uint32_t mid = left + (right - left) / 2;
       uint32_t mid_offset = mid * (key_length_ + value_length_);
       Slice mid_key(data_ + mid_offset, key_length_);
@@ -156,30 +138,24 @@ class FixBlock::Iter : public Iterator {
       int cmp = Compare(mid_key, target);
       if (cmp < 0) {
         left = mid + 1;
-      } else if (cmp > 0) {
-        if (mid == 0) {
-          break;
-        }
-        right = mid - 1;
       } else {
-        current_ = mid_offset;
-        ParseNextKey();
-        return;
+        right = mid;
       }
     }
 
     current_ = left * (key_length_ + value_length_);
-    ParseNextKey();
+    if (current_ >= size_) {
+      // 如果超出范围，设置为无效
+      current_ = size_;
+    }
   }
 
   void SeekToFirst() override {
     current_ = 0;
-    ParseNextKey();
   }
 
   void SeekToLast() override {
     current_ = (num_entries_ - 1) * (key_length_ + value_length_);
-    ParseNextKey();
   }
 };
 

@@ -17,7 +17,6 @@
 #include "merge_test/fix_block.h"
 
 namespace leveldb {
-
 struct FixTable::Rep {
   ~Rep() {
     delete filter;
@@ -35,6 +34,7 @@ struct FixTable::Rep {
   BlockHandle metaindex_handle;  // Handle to metaindex_block: saved from footer
   Block* index_block;
 };
+
 
 Status FixTable::Open(const Options& options, RandomAccessFile* file,
                    uint64_t size, FixTable** fixtable) {
@@ -177,7 +177,7 @@ Iterator* FixTable::BlockReader(void* arg, const ReadOptions& options,
       } else {
         s = ReadBlock(fixtable->rep_->file, options, handle, &contents);
         if (s.ok()) {
-          block = new FixBlock(contents);
+          block = new FixBlock(contents, 64, 64); //键值长度
           if (contents.cachable && options.fill_cache) {
             cache_handle = block_cache->Insert(key, block, block->size(),
                                                &DeleteCachedBlock);
@@ -187,7 +187,7 @@ Iterator* FixTable::BlockReader(void* arg, const ReadOptions& options,
     } else {
       s = ReadBlock(fixtable->rep_->file, options, handle, &contents);
       if (s.ok()) {
-        block = new FixBlock(contents);
+        block = new FixBlock(contents, 64, 64);
       }
     }
   }
