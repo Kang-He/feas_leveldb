@@ -38,6 +38,9 @@
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 
+//固定键值长度
+#include "merge_test/fix_table_builder.h"
+
 namespace leveldb {
 
 namespace {
@@ -302,7 +305,8 @@ class Repairer {
     if (!s.ok()) {
       return;
     }
-    TableBuilder* builder = new TableBuilder(options_, file);
+    //TableBuilder* builder = new TableBuilder(options_, file);
+    FixTableBuilder* builder = new FixTableBuilder(options_, file);
 
     // Copy data.
     Iterator* iter = NewTableIterator(t.meta);

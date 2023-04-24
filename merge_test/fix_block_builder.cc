@@ -38,8 +38,8 @@
 namespace leveldb {
 FixBlockBuilder::FixBlockBuilder(const Options* options)
     : options_(options),
-      key_length_(64),
-      value_length_(64),
+      key_length_(options->key_length),
+      value_length_(options->value_length),
       num_entries_(0),
       finished_(false) {}
 

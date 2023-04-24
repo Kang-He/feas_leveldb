@@ -12,6 +12,9 @@
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
 
+//修改成固定键值长度
+#include "merge_test/fix_table_builder.h"
+
 namespace leveldb {
 
 Status BuildTable(const std::string& dbname, Env* env, const Options& options,
@@ -28,7 +31,8 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
       return s;
     }
 
-    TableBuilder* builder = new TableBuilder(options, file);
+    //TableBuilder* builder = new TableBuilder(options, file);
+    FixTableBuilder* builder = new FixTableBuilder(options, file);
     meta->smallest.DecodeFrom(iter->key());
     Slice key;
     for (; iter->Valid(); iter->Next()) {

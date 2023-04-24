@@ -35,6 +35,9 @@
 #include "util/logging.h"
 #include "util/mutexlock.h"
 
+//固定键值长度
+#include "merge_test/fix_table_builder.h"
+
 namespace leveldb {
 
 const int kNumNonTableCacheFiles = 10;
@@ -80,8 +83,8 @@ struct DBImpl::CompactionState {
 
   // State kept for output being generated
   WritableFile* outfile;
-  TableBuilder* builder;
-
+  //TableBuilder* builder;
+  FixTableBuilder* builder;
   uint64_t total_bytes;
 };
 
@@ -817,7 +820,8 @@ Status DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
   std::string fname = TableFileName(dbname_, file_number);
   Status s = env_->NewWritableFile(fname, &compact->outfile);
   if (s.ok()) {
-    compact->builder = new TableBuilder(options_, compact->outfile);
+    //compact->builder = new TableBuilder(options_, compact->outfile);
+    compact->builder = new FixTableBuilder(options_, compact->outfile);
   }
   return s;
 }

@@ -803,6 +803,10 @@ class Benchmark {
     options.reuse_logs = FLAGS_reuse_logs;
     options.compression =
         FLAGS_compression ? kSnappyCompression : kNoCompression;
+    //设置键值长度
+    options.key_length = FLAGS_key_prefix + 16 + 8;
+    options.value_length = FLAGS_value_size;
+
     Status s = DB::Open(options, FLAGS_db, &db_);
     if (!s.ok()) {
       std::fprintf(stderr, "open error: %s\n", s.ToString().c_str());

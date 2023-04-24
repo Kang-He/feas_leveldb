@@ -64,19 +64,23 @@ public:
     // };
 
 
-    SSTMergeTester(std::string dbname, int num_entries, int kv_length, SSTType sst_type)
+    SSTMergeTester(std::string dbname, int num_entries, int key_length, int value_length, SSTType sst_type)
         : num_entries_(num_entries),
-            kv_length_(kv_length),
+            key_length_(key_length),
+            value_length_(value_length),
             sst_type_(sst_type),
             dbname_(dbname),
             env_(Env::Default()),
             options_(),
             table_cache_(new TableCache(dbname_, options_, 100000)),
-            t_recorder_() {}
+            t_recorder_() {
+                options_.key_length = key_length_;
+                options_.value_length = value_length_;
+            }
 
     void TestMergeProcess() {
         // 生成2个SST文件
-        generate_two_sst_files(num_entries_, kv_length_);
+        generate_two_sst_files();
 
         // 开始计时
         t_recorder_.start();
@@ -168,7 +172,9 @@ public:
 
 private:
     int num_entries_;
-    int kv_length_;
+    int key_length_;
+    int value_length_;
+
     SSTType sst_type_;
     std::string dbname_;
     Env* env_;
@@ -281,16 +287,18 @@ private:
         return s;
     }
     
-    vector<pair<string, string>> generate_random_kv_pairs(int num_entries, int kv_length) {
-        vector<pair<string, string>> kv_pairs;
-        random_device rd;
-        mt19937 generator(rd());
-        uniform_int_distribution<> dist(0, 25);
+    std::vector<std::pair<std::string, std::string>> generate_random_kv_pairs() {
+        std::vector<std::pair<std::string, std::string>> kv_pairs;
+        std::random_device rd;
+        std::mt19937 generator(rd());
+        std::uniform_int_distribution<> dist(0, 25);
 
-        for (int i = 0; i < num_entries; ++i) {
-            stringstream key_stream, value_stream;
-            for (int j = 0; j < kv_length; ++j) {
+        for (int i = 0; i < num_entries_; ++i) {
+            std::stringstream key_stream, value_stream;
+            for (uint32_t j = 0; j < key_length_; ++j) {
             key_stream << static_cast<char>('a' + dist(generator));
+            }
+            for (uint32_t j = 0; j < value_length_; ++j) {
             value_stream << static_cast<char>('a' + dist(generator));
             }
             kv_pairs.emplace_back(key_stream.str(), value_stream.str());
@@ -299,10 +307,11 @@ private:
         return kv_pairs;
     }
 
+
     // 函数：构建表格并填充随机键值对
-    void build_table_with_random_kv_pairs(int num_entries, int kv_length, const std::string& dbname, uint64_t meta_number) {
+    void build_table_with_random_kv_pairs(uint64_t meta_number) {
         // 生成随机键值对
-        vector<pair<string, string>> kv_pairs = generate_random_kv_pairs(num_entries, kv_length);
+        vector<pair<string, string>> kv_pairs = generate_random_kv_pairs();
         sort(kv_pairs.begin(), kv_pairs.end());
         // //输出键值对
         // for(auto kv : kv_pairs){
@@ -371,7 +380,7 @@ private:
         // while(iter1->Valid()){
         //     i++;
         //     cout << "i: " << i << " ";
-        //     cout << "key: " << iter1->key().ToString() << "value: " << iter1->value().ToString() << endl;
+        //     cout << "key: " << iter1->key().ToString() << "  value: " << iter1->value().ToString() << endl;
         //     iter1->Next();
         // }
         // //输出iter2键值对
@@ -380,7 +389,7 @@ private:
         // while(iter2->Valid()){
         //     i++;
         //     cout << "i: " << i << " ";
-        //     cout << "key: " << iter2->key().ToString() << "value: " << iter2->value().ToString() << endl;
+        //     cout << "key: " << iter2->key().ToString() << "  value: " << iter2->value().ToString() << endl;
         //     iter2->Next();
         // }
 
@@ -416,27 +425,28 @@ private:
     }
 
 
-    void generate_two_sst_files(int num_entries, int kv_length) {
+    void generate_two_sst_files() {
         // 生成第一个SST文件
         uint64_t meta_number = 1;
-        build_table_with_random_kv_pairs(num_entries, kv_length, dbname_, meta_number);
+        build_table_with_random_kv_pairs(meta_number);
         cout << "build table 1" << endl;
 
         // 生成第二个SST文件
         meta_number = 2;
-        build_table_with_random_kv_pairs(num_entries, kv_length, dbname_, meta_number);
+        build_table_with_random_kv_pairs(meta_number);
         cout << "build table 2" << endl;
     }
 
 };
 
 int main() {
-  int num_enties = 1000;
-  int kv_length = 64;
-  SSTMergeTester varTester("C:/Users/86158/Desktop/Code/LSM/dbData/varDB", num_enties, kv_length, SSTMergeTester::SSTType::VariableLength);
+  int num_enties = 10;
+  int key_length = 16;
+  int value_length = 8;
+  SSTMergeTester varTester("C:/Users/86158/Desktop/Code/LSM/dbData/varDB", num_enties, key_length, value_length, SSTMergeTester::SSTType::VariableLength);
   varTester.TestMergeProcess();
 
-  SSTMergeTester fixedTester("C:/Users/86158/Desktop/Code/LSM/dbData/fixedDB", num_enties, kv_length, SSTMergeTester::SSTType::FixedLength);
+  SSTMergeTester fixedTester("C:/Users/86158/Desktop/Code/LSM/dbData/fixedDB", num_enties, key_length, value_length, SSTMergeTester::SSTType::FixedLength);
   fixedTester.TestMergeProcess();
   
   return 0;

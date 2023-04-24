@@ -105,6 +105,10 @@ struct LEVELDB_EXPORT Options {
   // leave this parameter alone.
   int block_restart_interval = 16;
 
+  //fix_key_length, fix_value_length
+  int key_length = 64;
+  int value_length = 64;
+
   // Leveldb will write up to this amount of bytes to a file before
   // switching to a new one.
   // Most clients should leave this parameter alone.  However if your
@@ -142,9 +146,7 @@ struct LEVELDB_EXPORT Options {
   // NewBloomFilterPolicy() here.
   const FilterPolicy* filter_policy = nullptr;
 
-  //fix_key_length, fix_value_length
-  // uint32_t key_length = 64;
-  // uint32_t value_length = 64;
+  
 };
 
 // Options that control read operations
@@ -183,6 +185,8 @@ struct LEVELDB_EXPORT WriteOptions {
   // with sync==true has similar crash semantics to a "write()"
   // system call followed by "fsync()".
   bool sync = false;
+
+  
 };
 
 }  // namespace leveldb

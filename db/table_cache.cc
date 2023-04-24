@@ -9,11 +9,13 @@
 #include "leveldb/table.h"
 #include "util/coding.h"
 
+#include "merge_test/fix_table.h"
+
 namespace leveldb {
 
 struct TableAndFile {
   RandomAccessFile* file;
-  Table* table;
+  FixTable* table;
 };
 
 static void DeleteEntry(const Slice& key, void* value) {
@@ -48,7 +50,7 @@ Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
   if (*handle == nullptr) {
     std::string fname = TableFileName(dbname_, file_number);
     RandomAccessFile* file = nullptr;
-    Table* table = nullptr;
+    FixTable* table = nullptr;
     s = env_->NewRandomAccessFile(fname, &file);
     if (!s.ok()) {
       std::string old_fname = SSTTableFileName(dbname_, file_number);
@@ -57,7 +59,7 @@ Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
       }
     }
     if (s.ok()) {
-      s = Table::Open(options_, file, file_size, &table);
+      s = FixTable::Open(options_, file, file_size, &table);
     }
 
     if (!s.ok()) {
@@ -77,7 +79,7 @@ Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
 
 Iterator* TableCache::NewIterator(const ReadOptions& options,
                                   uint64_t file_number, uint64_t file_size,
-                                  Table** tableptr) {
+                                  FixTable** tableptr) {
   if (tableptr != nullptr) {
     *tableptr = nullptr;
   }
@@ -88,7 +90,7 @@ Iterator* TableCache::NewIterator(const ReadOptions& options,
     return NewErrorIterator(s);
   }
 
-  Table* table = reinterpret_cast<TableAndFile*>(cache_->Value(handle))->table;
+  FixTable* table = reinterpret_cast<TableAndFile*>(cache_->Value(handle))->table;
   Iterator* result = table->NewIterator(options);
   result->RegisterCleanup(&UnrefEntry, cache_, handle);
   if (tableptr != nullptr) {
@@ -104,7 +106,7 @@ Status TableCache::Get(const ReadOptions& options, uint64_t file_number,
   Cache::Handle* handle = nullptr;
   Status s = FindTable(file_number, file_size, &handle);
   if (s.ok()) {
-    Table* t = reinterpret_cast<TableAndFile*>(cache_->Value(handle))->table;
+    FixTable* t = reinterpret_cast<TableAndFile*>(cache_->Value(handle))->table;
     s = t->InternalGet(options, k, arg, handle_result);
     cache_->Release(handle);
   }

@@ -19,6 +19,8 @@
 #include "leveldb/write_batch.h"
 #include "util/logging.h"
 
+#include "merge_test/fix_table.h"
+
 namespace leveldb {
 
 namespace {
@@ -147,7 +149,7 @@ Status DumpDescriptor(Env* env, const std::string& fname, WritableFile* dst) {
 Status DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
   uint64_t file_size;
   RandomAccessFile* file = nullptr;
-  Table* table = nullptr;
+  FixTable* table = nullptr;
   Status s = env->GetFileSize(fname, &file_size);
   if (s.ok()) {
     s = env->NewRandomAccessFile(fname, &file);
@@ -157,7 +159,7 @@ Status DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
     // comparator used in this database. However this should not cause
     // problems since we only use Table operations that do not require
     // any comparisons.  In particular, we do not call Seek or Prev.
-    s = Table::Open(Options(), file, file_size, &table);
+    s = FixTable::Open(Options(), file, file_size, &table);
   }
   if (!s.ok()) {
     delete table;

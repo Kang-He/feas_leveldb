@@ -177,7 +177,7 @@ Iterator* FixTable::BlockReader(void* arg, const ReadOptions& options,
       } else {
         s = ReadBlock(fixtable->rep_->file, options, handle, &contents);
         if (s.ok()) {
-          block = new FixBlock(contents, 64, 64); //键值长度
+          block = new FixBlock(contents, fixtable->rep_->options.key_length, fixtable->rep_->options.value_length); //键值长度
           if (contents.cachable && options.fill_cache) {
             cache_handle = block_cache->Insert(key, block, block->size(),
                                                &DeleteCachedBlock);
@@ -187,7 +187,7 @@ Iterator* FixTable::BlockReader(void* arg, const ReadOptions& options,
     } else {
       s = ReadBlock(fixtable->rep_->file, options, handle, &contents);
       if (s.ok()) {
-        block = new FixBlock(contents, 64, 64);
+        block = new FixBlock(contents, fixtable->rep_->options.key_length, fixtable->rep_->options.value_length);
       }
     }
   }

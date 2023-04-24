@@ -19,6 +19,8 @@
 #include "util/coding.h"
 #include "util/logging.h"
 
+#include "merge_test/fix_table.h"
+
 namespace leveldb {
 
 static size_t TargetFileSize(const Options* options) {
@@ -1133,7 +1135,7 @@ uint64_t VersionSet::ApproximateOffsetOf(Version* v, const InternalKey& ikey) {
       } else {
         // "ikey" falls in the range for this table.  Add the
         // approximate offset of "ikey" within the table.
-        Table* tableptr;
+        FixTable* tableptr;
         Iterator* iter = table_cache_->NewIterator(
             ReadOptions(), files[i]->number, files[i]->file_size, &tableptr);
         if (tableptr != nullptr) {
