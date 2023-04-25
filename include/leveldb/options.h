@@ -109,6 +109,9 @@ struct LEVELDB_EXPORT Options {
   int key_length = 64;
   int value_length = 64;
 
+  // If true, all blocks are using the specified fix_key_length and fix_value_length
+  bool fix_block_enable = false;
+
   // Leveldb will write up to this amount of bytes to a file before
   // switching to a new one.
   // Most clients should leave this parameter alone.  However if your

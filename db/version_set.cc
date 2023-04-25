@@ -1135,7 +1135,8 @@ uint64_t VersionSet::ApproximateOffsetOf(Version* v, const InternalKey& ikey) {
       } else {
         // "ikey" falls in the range for this table.  Add the
         // approximate offset of "ikey" within the table.
-        FixTable* tableptr;
+        //FixTable* tableptr;
+        BaseTable* tableptr;
         Iterator* iter = table_cache_->NewIterator(
             ReadOptions(), files[i]->number, files[i]->file_size, &tableptr);
         if (tableptr != nullptr) {

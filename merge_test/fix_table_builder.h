@@ -20,6 +20,8 @@
 #include "leveldb/status.h"
 #include "merge_test/fix_block_builder.h"
 #include "table/block_builder.h"
+#include "merge_test/base_table_builder.h"
+
 
 namespace leveldb {
 
@@ -29,7 +31,7 @@ class WritableFile;
 // void test_hello() {
 //     std::cout << "Hello, hk!" << std::endl;
 // }
-class LEVELDB_EXPORT FixTableBuilder {
+class LEVELDB_EXPORT FixTableBuilder : public BaseTableBuilder {
  public:
   // Create a builder that will store the contents of the table it is
   // building in *file.  Does not close the file.  It is up to the
@@ -48,40 +50,40 @@ class LEVELDB_EXPORT FixTableBuilder {
   // passed to the constructor is different from its value in the
   // structure passed to this method, this method will return an error
   // without changing any fields.
-  Status ChangeOptions(const Options& options);
+  Status ChangeOptions(const Options& options) override;
 
   // Add key,value to the table being constructed.
   // REQUIRES: key is after any previously added key according to comparator.
   // REQUIRES: Finish(), Abandon() have not been called
-  void Add(const Slice& key, const Slice& value);
+  void Add(const Slice& key, const Slice& value) override;
 
   // Advanced operation: flush any buffered key/value pairs to file.
   // Can be used to ensure that two adjacent entries never live in
   // the same data block.  Most clients should not need to use this method.
   // REQUIRES: Finish(), Abandon() have not been called
-  void Flush();
+  void Flush() override;
 
   // Return non-ok iff some error has been detected.
-  Status status() const;
+  Status status() const override;
 
   // Finish building the table.  Stops using the file passed to the
   // constructor after this function returns.
   // REQUIRES: Finish(), Abandon() have not been called
-  Status Finish();
+  Status Finish() override;
 
   // Indicate that the contents of this builder should be abandoned.  Stops
   // using the file passed to the constructor after this function returns.
   // If the caller is not going to call Finish(), it must call Abandon()
   // before destroying this builder.
   // REQUIRES: Finish(), Abandon() have not been called
-  void Abandon();
+  void Abandon() override;
 
   // Number of calls to Add() so far.
-  uint64_t NumEntries() const;
+  uint64_t NumEntries() const override;
 
   // Size of the file generated so far.  If invoked after a successful
   // Finish() call, returns the size of the final generated file.
-  uint64_t FileSize() const;
+  uint64_t FileSize() const override;
 
  private:
   bool ok() const { return status().ok(); }

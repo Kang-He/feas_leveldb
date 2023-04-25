@@ -9,6 +9,7 @@
 
 #include "leveldb/export.h"
 #include "leveldb/iterator.h"
+#include "merge_test/base_table.h"
 
 namespace leveldb {
 
@@ -23,7 +24,7 @@ class TableCache;
 // A Table is a sorted map from strings to strings.  Tables are
 // immutable and persistent.  A Table may be safely accessed from
 // multiple threads without external synchronization.
-class LEVELDB_EXPORT Table {
+class LEVELDB_EXPORT Table : public BaseTable{
  public:
   // Attempt to open the table that is stored in bytes [0..file_size)
   // of "file", and read the metadata entries necessary to allow
@@ -48,7 +49,7 @@ class LEVELDB_EXPORT Table {
   // Returns a new iterator over the table contents.
   // The result of NewIterator() is initially invalid (caller must
   // call one of the Seek methods on the iterator before using it).
-  Iterator* NewIterator(const ReadOptions&) const;
+  Iterator* NewIterator(const ReadOptions&) const override;
 
   // Given a key, return an approximate byte offset in the file where
   // the data for that key begins (or would begin if the key were
@@ -56,7 +57,14 @@ class LEVELDB_EXPORT Table {
   // bytes, and so includes effects like compression of the underlying data.
   // E.g., the approximate offset of the last key in the table will
   // be close to the file length.
-  uint64_t ApproximateOffsetOf(const Slice& key) const;
+  uint64_t ApproximateOffsetOf(const Slice& key) const override;
+
+  // Calls (*handle_result)(arg, ...) with the entry found after a call
+  // to Seek(key).  May not make such a call if filter policy says
+  // that key is not present.
+  Status InternalGet(const ReadOptions&, const Slice& key, void* arg,
+                     void (*handle_result)(void* arg, const Slice& k,
+                                           const Slice& v));
 
  private:
   friend class TableCache;
@@ -66,12 +74,7 @@ class LEVELDB_EXPORT Table {
 
   explicit Table(Rep* rep) : rep_(rep) {}
 
-  // Calls (*handle_result)(arg, ...) with the entry found after a call
-  // to Seek(key).  May not make such a call if filter policy says
-  // that key is not present.
-  Status InternalGet(const ReadOptions&, const Slice& key, void* arg,
-                     void (*handle_result)(void* arg, const Slice& k,
-                                           const Slice& v));
+  
 
   void ReadMeta(const Footer& footer);
   void ReadFilter(const Slice& filter_handle_value);

@@ -11,6 +11,7 @@
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
+#include "leveldb/table_builder.h"
 
 //修改成固定键值长度
 #include "merge_test/fix_table_builder.h"
@@ -32,7 +33,14 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
     }
 
     //TableBuilder* builder = new TableBuilder(options, file);
-    FixTableBuilder* builder = new FixTableBuilder(options, file);
+    //FixTableBuilder* builder = new FixTableBuilder(options, file);
+    //根据options.fix_block_enable来判断是否使用FixTableBuilder
+    BaseTableBuilder *builder = nullptr;
+    if(options.fix_block_enable)
+      builder = new FixTableBuilder(options, file);
+    else
+      builder = new TableBuilder(options, file);
+    
     meta->smallest.DecodeFrom(iter->key());
     Slice key;
     for (; iter->Valid(); iter->Next()) {

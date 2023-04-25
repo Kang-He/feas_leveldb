@@ -38,7 +38,7 @@ class TableCache {
   // by the cache and should not be deleted, and is valid for as long as the
   // returned iterator is live.
   Iterator* NewIterator(const ReadOptions& options, uint64_t file_number,
-                        uint64_t file_size, FixTable** tableptr = nullptr);
+                        uint64_t file_size, BaseTable** tableptr = nullptr);
 
   // If a seek to internal key "k" in specified file finds an entry,
   // call (*handle_result)(arg, found_key, found_value).

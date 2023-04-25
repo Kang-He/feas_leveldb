@@ -84,7 +84,8 @@ struct DBImpl::CompactionState {
   // State kept for output being generated
   WritableFile* outfile;
   //TableBuilder* builder;
-  FixTableBuilder* builder;
+  //FixTableBuilder* builder;
+  BaseTableBuilder* builder;
   uint64_t total_bytes;
 };
 
@@ -820,8 +821,13 @@ Status DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
   std::string fname = TableFileName(dbname_, file_number);
   Status s = env_->NewWritableFile(fname, &compact->outfile);
   if (s.ok()) {
-    //compact->builder = new TableBuilder(options_, compact->outfile);
-    compact->builder = new FixTableBuilder(options_, compact->outfile);
+    //compact->builder = new TableBuilder(optisons_, compact->outfile);
+    //compact->builder = new FixTableBuilder(options_, compact->outfile);
+    if(options_.fix_block_enable)
+      compact->builder = new FixTableBuilder(options_, compact->outfile);
+    else
+      compact->builder = new TableBuilder(options_, compact->outfile);
+    
   }
   return s;
 }

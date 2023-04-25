@@ -306,8 +306,14 @@ class Repairer {
       return;
     }
     //TableBuilder* builder = new TableBuilder(options_, file);
-    FixTableBuilder* builder = new FixTableBuilder(options_, file);
-
+    //FixTableBuilder* builder = new FixTableBuilder(options_, file);
+    BaseTableBuilder* builder = nullptr;
+    if(options_.fix_block_enable) {
+      builder = new FixTableBuilder(options_, file);
+    } else {
+      builder = new TableBuilder(options_, file);
+    }
+      
     // Copy data.
     Iterator* iter = NewTableIterator(t.meta);
     int counter = 0;
