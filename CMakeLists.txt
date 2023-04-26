@@ -198,7 +198,10 @@ target_sources(leveldb
     "merge_test/fix_block.h"
     "merge_test/fix_table.cc"
     "merge_test/fix_table.h"
-
+    "feasdb/feasdb.cc"
+    "feasdb/feasdb.h"
+    "feasdb/multilsm_tree_iterator.cc"
+    "feasdb/multilsm_tree_iterator.h"
     
 
   # Only CMake 3.3+ supports PUBLIC sources in targets exported by "install".

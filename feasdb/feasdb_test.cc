@@ -3,7 +3,10 @@
 #include <chrono>
 #include <string>
 #include <cassert>
-#include <leveldb/db.h>
+
+#include "leveldb/db.h"
+
+#include "feasdb/feasdb.h"
 
 std::string random_string(std::size_t length) {
     static const std::string alphanums = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -17,8 +20,7 @@ std::string random_string(std::size_t length) {
 
     return str;
 }
-
-int main() {
+void SingleTreeTest(){
     // Customize these parameters as needed.
     const int num_entries = 1000;
     const int seq_num_length = 8;
@@ -56,6 +58,53 @@ int main() {
     std::cout << "Write bandwidth (MB/s): " << write_bandwidth << std::endl;
 
     delete db;
+}
 
+void MultiTreeTest() {
+  // Customize these parameters as needed.
+  const int num_entries = 1000;
+  const int seq_num_length = 8;
+  const int key_length = 64 - seq_num_length;
+  const int value_length = 64;
+  std::string dbname = "C:/Users/86158/Desktop/Code/LSM/dbData/test_db_multi_tree";
+  leveldb::FeasDBImpl* db;
+  leveldb::Options options;
+  options.create_if_missing = true;
+//   options.min_key_size = key_length;
+//   options.max_key_size = key_length;
+//   options.key_interval_size = 1;
+//   options.min_value_size = value_length;
+//   options.max_value_size = value_length;
+//   options.value_interval_size = 1;
+  db = new leveldb::FeasDBImpl(options, dbname);
+
+  auto start_time = std::chrono::high_resolution_clock::now();
+
+  for (int i = 0; i < num_entries; ++i) {
+    std::string key = random_string(key_length);
+    std::string value = random_string(value_length);
+
+    leveldb::Status status = db->Put(leveldb::WriteOptions(), key, value);
+    assert(status.ok());
+  }
+
+  auto end_time = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double, std::micro> elapsed = end_time - start_time;
+
+  double write_latency = elapsed.count() / num_entries;
+  double write_iops = num_entries / (elapsed.count() / 1e6) * 1e5;
+  double write_bandwidth = (key_length + value_length) * num_entries / elapsed.count() * 1e6 / (1024 * 1024);
+
+  std::cout << "FeasDB Write latency (micros/op): " << write_latency << std::endl;
+  std::cout << "FeasDB Write IOPS (10^5 ops/s): " << write_iops << std::endl;
+  std::cout << "FeasDB Write bandwidth (MB/s): " << write_bandwidth << std::endl;
+
+  delete db;
+}
+
+
+int main() {
+    //SingleTreeTest();
+    MultiTreeTest();
     return 0;
 }

@@ -105,6 +105,7 @@ struct LEVELDB_EXPORT Options {
   // leave this parameter alone.
   int block_restart_interval = 16;
 
+  //feasdb params begin
   //fix_key_length, fix_value_length
   int key_length = 64;
   int value_length = 64;
@@ -112,6 +113,16 @@ struct LEVELDB_EXPORT Options {
   // If true, all blocks are using the specified fix_key_length and fix_value_length
   bool fix_block_enable = false;
 
+  //LSM-tree distribution
+  int min_key_size = 16;
+  int max_key_size = 512;
+  int key_interval_size = 16;
+  int min_value_size = 16;
+  int max_value_size = 512;
+  int value_interval_size = 16;
+  //feasdb params end
+  
+  
   // Leveldb will write up to this amount of bytes to a file before
   // switching to a new one.
   // Most clients should leave this parameter alone.  However if your
