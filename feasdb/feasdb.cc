@@ -7,8 +7,8 @@ namespace leveldb {
 
 FeasDBImpl::FeasDBImpl(const Options& options, const std::string& dbname)
     : options_(options), dbname_(dbname), var_length_lsm_tree_(nullptr) {
-  min_key_size_ = options_.min_key_size + seq_num_length_;
-  max_key_size_ = options_.max_key_size + seq_num_length_;
+  min_key_size_ = options_.min_key_size;
+  max_key_size_ = options_.max_key_size;
   key_interval_size_ = options_.key_interval_size;
   min_value_size_ = options_.min_value_size;
   max_value_size_ = options_.max_value_size;
@@ -136,6 +136,18 @@ void FeasDBImpl::Close() {
   lsm_trees_.clear();
   delete var_length_lsm_tree_;
   var_length_lsm_tree_ = nullptr;
+}
+
+Status FeasDBImpl::DestroyDB() {
+  Status s;
+  for (auto& tree : lsm_trees_) {
+    s = leveldb::DestroyDB(dbname_ + "/lsm_tree_" + std::to_string(tree.first.first) + "_" + std::to_string(tree.first.second), options_);
+    if (!s.ok()) {
+      return s;
+    }
+  }
+  s = leveldb::DestroyDB(dbname_ + "/var_length_lsm_tree", options_);
+  return s;
 }
 
 

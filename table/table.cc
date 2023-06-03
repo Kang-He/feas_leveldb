@@ -15,6 +15,8 @@
 #include "table/two_level_iterator.h"
 #include "util/coding.h"
 
+#include "merge_test/util.cc"
+
 namespace leveldb {
 
 struct Table::Rep {
@@ -162,7 +164,8 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
   Status s = handle.DecodeFrom(&input);
   // We intentionally allow extra stuff in index_value so that we
   // can add more features in the future.
-
+  //时间记录器
+  TimeRecorder* t_recorder = (TimeRecorder*)options.t_recorder;
   if (s.ok()) {
     BlockContents contents;
     if (block_cache != nullptr) {
@@ -184,7 +187,11 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
         }
       }
     } else {
+      if(t_recorder != nullptr)
+        t_recorder->start(TimeRecorder::READ);
       s = ReadBlock(table->rep_->file, options, handle, &contents);
+      if(t_recorder != nullptr)
+        t_recorder->stop(TimeRecorder::READ);
       if (s.ok()) {
         block = new Block(contents);
       }

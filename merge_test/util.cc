@@ -77,6 +77,98 @@ class TestIter : public Iterator {
   
 };
 
+class Iter : public Iterator {
+ private:
+  const Comparator* const comparator_;
+  const char* const data_;       // underlying block contents
+  const size_t size_;            // block size
+  uint32_t key_length_;
+  uint32_t value_length_;
+  uint32_t num_entries_;
+
+  // current_ is offset in data_ of current entry.  >= size_ if !Valid
+  uint32_t current_;
+  Status status_;
+
+  inline int Compare(const Slice& a, const Slice& b) const {
+    return comparator_->Compare(a, b);
+  }
+
+  // Return the offset in data_ just past the end of the current entry.
+  inline uint32_t NextEntryOffset() const {
+    return current_ + key_length_ + value_length_;
+  }
+  inline uint32_t LastEntryOffset() const {
+    return current_ - key_length_ - value_length_;
+  }
+
+ public:
+  Iter(const Comparator* comparator, const char* data, size_t size, uint32_t key_length,
+       uint32_t value_length, uint32_t num_entries)
+      : comparator_(comparator),
+        data_(data),
+        size_(size),
+        key_length_(key_length),
+        value_length_(value_length),
+        num_entries_(num_entries),
+        current_(0) {
+  }
+
+  bool Valid() const override { return current_ < size_; }
+  Status status() const override { return status_; }
+  Slice key() const override {
+    assert(Valid());
+    return Slice(data_ + current_, key_length_);
+  }
+  Slice value() const override {
+    assert(Valid());
+    return Slice(data_ + current_ + key_length_, value_length_);
+  }
+
+  void Next() override {
+    assert(Valid());
+    current_ = NextEntryOffset();
+  }
+
+  void Prev() override {
+    assert(Valid());
+    current_ = LastEntryOffset();
+  }
+
+  void Seek(const Slice& target) override {
+    uint32_t left = 0;
+    uint32_t right = num_entries_;
+
+    while (left < right) {
+      uint32_t mid = left + (right - left) / 2;
+      uint32_t mid_offset = mid * (key_length_ + value_length_);
+      Slice mid_key(data_ + mid_offset, key_length_);
+
+      int cmp = Compare(mid_key, target);
+      if (cmp < 0) {
+        left = mid + 1;
+      } else {
+        right = mid;
+      }
+    }
+
+    current_ = left * (key_length_ + value_length_);
+    if (current_ >= size_) {
+      // 如果超出范围，设置为无效
+      current_ = size_;
+    }
+  }
+
+  void SeekToFirst() override {
+    current_ = 0;
+  }
+
+  void SeekToLast() override {
+    current_ = (num_entries_ - 1) * (key_length_ + value_length_);
+  }
+};
+
+
 
 //用来记录合并阶段的各部分时间
 class TimeRecorder {
@@ -91,10 +183,10 @@ public:
         WRITE,
         NUM_OPERATIONS
     };
-
-private:
     std::map<Operation, std::chrono::duration<double>> durations_;
-    std::chrono::time_point<std::chrono::steady_clock> start_time_;
+private:
+    
+    std::map<Operation, std::chrono::time_point<std::chrono::steady_clock>> start_times_;
 
 public:
     TimeRecorder() {
@@ -103,13 +195,13 @@ public:
         }
     }
 
-    void start() {
-        start_time_ = std::chrono::steady_clock::now();
+    void start(Operation op) {
+        start_times_[op] = std::chrono::steady_clock::now();
     }
 
     void stop(Operation op) {
         auto end_time = std::chrono::steady_clock::now();
-        durations_[op] += end_time - start_time_;
+        durations_[op] += end_time - start_times_[op];
     }
 
     void print_durations() {

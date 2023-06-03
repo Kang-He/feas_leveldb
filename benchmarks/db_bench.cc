@@ -804,7 +804,9 @@ class Benchmark {
     options.compression =
         FLAGS_compression ? kSnappyCompression : kNoCompression;
     //设置键值长度
-    options.key_length = FLAGS_key_prefix + 16 + 8;
+    options.fix_block_enable = true;
+    //options.key_length = FLAGS_key_prefix + 16 + 8;
+    options.key_length = FLAGS_value_size;
     options.value_length = FLAGS_value_size;
 
     Status s = DB::Open(options, FLAGS_db, &db_);
@@ -843,8 +845,11 @@ class Benchmark {
       for (int j = 0; j < entries_per_batch_; j++) {
         const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
         key.Set(k);
-        batch.Put(key.slice(), gen.Generate(value_size_));
-        bytes += value_size_ + key.slice().size();
+        // batch.Put(key.slice(), gen.Generate(value_size_));
+        // bytes += value_size_ + key.slice().size();
+        //将键也随机生成
+        batch.Put(gen.Generate(value_size_ - 8), gen.Generate(value_size_));
+        bytes += value_size_ - 8 + value_size_;
         thread->stats.FinishedSingleOp();
       }
       s = db_->Write(write_options_, &batch);

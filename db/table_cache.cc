@@ -64,11 +64,11 @@ Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
       //s = FixTable::Open(options_, file, file_size, &table);
       if (options_.fix_block_enable) {
         FixTable* fix_table = nullptr;
-        s = FixTable::Open(Options(), file, file_size, &fix_table);
+        s = FixTable::Open(options_, file, file_size, &fix_table);
         table = dynamic_cast<BaseTable*>(fix_table);
       } else {
         Table* base_table = nullptr;
-        s = Table::Open(Options(), file, file_size, &base_table);
+        s = Table::Open(options_, file, file_size, &base_table);
         table = dynamic_cast<BaseTable*>(base_table);
       }
     }

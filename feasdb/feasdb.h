@@ -36,6 +36,7 @@ class FeasDBImpl {
   Status Write(const WriteOptions& options, WriteBatch* updates) ;
   Status Get(const ReadOptions& options, const Slice& key, std::string* value) ;
   Iterator* NewIterator(const ReadOptions& options) ;
+  Status DestroyDB();
 
  private:
   // Options and dbname used to open the database

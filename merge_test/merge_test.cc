@@ -43,25 +43,7 @@ public:
         FixedLength,
         VariableLength
     };
-    
-	// struct Rep {
-    //   ~Rep() {
-    //     delete filter;
-    //     delete[] filter_data;
-    //     delete index_block;
-    //   }
-
-    //   Options options;
-    //   Status status;
-    //   RandomAccessFile* file;
-    //   uint64_t cache_id;
-    //   FilterBlockReader* filter;
-    //   const char* filter_data;
-
-    //   BlockHandle
-    //       metaindex_handle;  // Handle to metaindex_block: saved from footer
-    //   Block* index_block;
-    // };
+    TimeRecorder t_recorder_;
 
 
     SSTMergeTester(std::string dbname, int num_entries, int key_length, int value_length, SSTType sst_type)
@@ -76,35 +58,41 @@ public:
             t_recorder_() {
                 options_.key_length = key_length_;
                 options_.value_length = value_length_;
+                read_options_.t_recorder =(char*)(&t_recorder_);
             }
 
     void TestMergeProcess() {
         // 生成2个SST文件
-        generate_two_sst_files();
+        //generate_two_sst_files();
 
         // 开始计时
-        t_recorder_.start();
+        t_recorder_.start(TimeRecorder::DECOMP);
 
         // 读取第一个SST文件
         Iterator* iter1 = read_sst_file(dbname_, "000001.ldb");
 
         // 结束计时并记录时间
-        t_recorder_.stop(TimeRecorder::READ);
+        t_recorder_.stop(TimeRecorder::DECOMP);
 
         // 开始计时
-        t_recorder_.start();
+        t_recorder_.start(TimeRecorder::DECOMP);
 
         // 读取第二个SST文件
         Iterator* iter2 = read_sst_file(dbname_, "000002.ldb");
 
         // 结束计时并记录时间
-        t_recorder_.stop(TimeRecorder::READ);
+        t_recorder_.stop(TimeRecorder::DECOMP);
 
         // 合并两个SST文件
         // 开始计时
-        t_recorder_.start();
-
-        TestIter* merged_iter = merge_iterators(iter1, iter2);
+        t_recorder_.start(TimeRecorder::SORT);
+        Iterator* merged_iter = nullptr;
+        if (sst_type_ == SSTType::FixedLength) {
+            merged_iter = fixed_merge_iterators(iter1, iter2);
+        } else {
+            merged_iter = var_merge_iterators(iter1, iter2);
+        }
+        //TestIter* merged_iter = merge_iterators(iter1, iter2);
 
         // 结束计时并记录时间
         t_recorder_.stop(TimeRecorder::SORT);
@@ -113,6 +101,9 @@ public:
         build_table_with_kv_pairs(merged_iter, dbname_, 3);
 
         // 输出时间记录
+        // 由于read只记录了datablock的读取，因此为估计实际值，将read时间乘以2
+        t_recorder_.durations_[TimeRecorder::READ] *= 1;
+        //t_recorder_.durations_[TimeRecorder::DECOMP] = t_recorder_.durations_[TimeRecorder::DECOMP] - t_recorder_.durations_[TimeRecorder::READ];
         t_recorder_.print_durations();
 
         // 释放内存
@@ -121,54 +112,6 @@ public:
         delete merged_iter;
         //test_merge_process(num_entries_, kv_length_);
     }
-    // //打开SST文件
-    // Status Open(const Options& options, RandomAccessFile* file,
-    //                       uint64_t size, FixTable** fixtable) {
-    //   *fixtable = nullptr;
-    //   if (size < Footer::kEncodedLength) {
-    //     return Status::Corruption("file is too short to be an sstable");
-    //   }
-
-    //   char footer_space[Footer::kEncodedLength];
-    //   Slice footer_input;
-    //   Status s =
-    //       file->Read(size - Footer::kEncodedLength, Footer::kEncodedLength,
-    //                  &footer_input, footer_space);
-    //   if (!s.ok()) return s;
-
-    //   Footer footer;
-    //   s = footer.DecodeFrom(&footer_input);
-    //   if (!s.ok()) return s;
-
-    //   // Read the index block
-    //   BlockContents index_block_contents;
-    //   ReadOptions opt;
-    //   if (options.paranoid_checks) {
-    //     opt.verify_checksums = true;
-    //   }
-    //   s = ReadBlock(file, opt, footer.index_handle(), &index_block_contents);
-
-    //   if (s.ok()) {
-    //     // We've successfully read the footer and the index block: we're
-    //     // ready to serve requests.
-    //     Block* index_block = new Block(index_block_contents);
-    //     //FixTable *temp = new FixTable();
-    //     FixTable::Rep* rep = new FixTable::Rep;
-    //     rep->options = options;
-    //     rep->file = file;
-    //     rep->metaindex_handle = footer.metaindex_handle();
-    //     rep->index_block = index_block;
-    //     rep->cache_id =
-    //         (options.block_cache ? options.block_cache->NewId() : 0);
-    //     rep->filter_data = nullptr;
-    //     rep->filter = nullptr;
-    //     *fixtable = new FixTable(rep);
-    //     (*fixtable)->ReadMeta(footer);
-    //   }
-
-    //   return s;
-    // }
-
 
 private:
     int num_entries_;
@@ -180,7 +123,7 @@ private:
     Env* env_;
     Options options_;
     TableCache* table_cache_;
-    TimeRecorder t_recorder_;
+    ReadOptions read_options_;
 
     // 将原先的全局变量和函数声明为类的私有成员和成员函数
     // ...
@@ -196,7 +139,7 @@ private:
         cout << "fname = " << fname << endl;
         if (iter->Valid()) {
             //开始计时
-            t_recorder_.start();
+            t_recorder_.start(TimeRecorder::Operation::COMP);
 
             WritableFile* file;
             s = env->NewWritableFile(fname, &file);
@@ -252,7 +195,7 @@ private:
             
 
             //开始计时
-            t_recorder_.start();
+            t_recorder_.start(TimeRecorder::Operation::WRITE);
 
             // Finish and check for file errors
             if (s.ok()) {
@@ -354,22 +297,22 @@ private:
         if(sst_type_ == SSTType::VariableLength){
             leveldb::Table* table = nullptr;
             leveldb::Table::Open(options_, file, file_size, &table);
-            ReadOptions read_options;
-            Iterator* iterator = table->NewIterator(read_options);
+            //ReadOptions read_options;
+            Iterator* iterator = table->NewIterator(read_options_);
             iterator->SeekToFirst();
             return iterator;
         }else{
             FixTable* table = nullptr;
             FixTable::Open(options_, file, file_size, &table);
-            ReadOptions read_options;
-            Iterator* iterator = table->NewIterator(read_options);
+            //ReadOptions read_options;
+            Iterator* iterator = table->NewIterator(read_options_);
             iterator->SeekToFirst();
             return iterator;
         }
   
     }
 // 函数：合并排序两个迭代器
-    TestIter* merge_iterators(Iterator* iter1, Iterator* iter2) {
+    TestIter* var_merge_iterators(Iterator* iter1, Iterator* iter2) {
         std::vector<std::pair<std::string, std::string>> merged_data;
         iter1->SeekToFirst();
         iter2->SeekToFirst();
@@ -424,6 +367,47 @@ private:
         return new TestIter(merged_data);
     }
 
+    Iterator* fixed_merge_iterators(Iterator* iter1, Iterator* iter2) {
+        size_t data_size = 0;
+        data_size = num_entries_ * (key_length_ + value_length_) * 2;
+
+        char* merged_data = new char[data_size];
+        size_t offset = 0;
+
+        iter1->SeekToFirst();
+        iter2->SeekToFirst();
+
+        while (iter1->Valid() && iter2->Valid()) {
+            int comp = iter1->key().compare(iter2->key());
+            if (comp < 0) {
+                memcpy(merged_data + offset, iter1->key().data(), key_length_);
+                memcpy(merged_data + offset + key_length_, iter1->value().data(), value_length_);
+                iter1->Next();
+            } else {
+                memcpy(merged_data + offset, iter2->key().data(), key_length_);
+                memcpy(merged_data + offset + key_length_, iter2->value().data(), value_length_);
+                iter2->Next();
+            }
+            offset += key_length_ + value_length_;
+        }
+
+        while (iter1->Valid()) {
+            memcpy(merged_data + offset, iter1->key().data(), key_length_);
+            memcpy(merged_data + offset + key_length_, iter1->value().data(), value_length_);
+            iter1->Next();
+            offset += key_length_ + value_length_;
+        }
+
+        while (iter2->Valid()) {
+            memcpy(merged_data + offset, iter2->key().data(), key_length_);
+            memcpy(merged_data + offset + key_length_, iter2->value().data(), value_length_);
+            iter2->Next();
+            offset += key_length_ + value_length_;
+        }
+
+        return new Iter(options_.comparator, merged_data, data_size, key_length_, value_length_, num_entries_);
+    }
+
 
     void generate_two_sst_files() {
         // 生成第一个SST文件
@@ -438,17 +422,78 @@ private:
     }
 
 };
+void print_comparative_durations(TimeRecorder& varTester, TimeRecorder& fixedTester) {
+    std::vector<TimeRecorder::Operation> operations = {
+        TimeRecorder::READ,
+        TimeRecorder::DECOMP,
+        TimeRecorder::SORT,
+        TimeRecorder::COMP,
+        TimeRecorder::WRITE
+    };
+
+    std::map<TimeRecorder::Operation, std::string> operation_names = {
+        {TimeRecorder::READ, "Read"},
+        {TimeRecorder::DECOMP, "Decompression"},
+        {TimeRecorder::SORT, "Sort"},
+        {TimeRecorder::COMP, "Compression"},
+        {TimeRecorder::WRITE, "Write"}
+    };
+
+    auto total_duration_var = std::chrono::duration<double>::zero();
+    auto total_duration_fixed = std::chrono::duration<double>::zero();
+
+    for (auto op : operations) {
+        total_duration_var += varTester.durations_[op];
+        total_duration_fixed += fixedTester.durations_[op];
+    }
+
+    double total_speedup_ratio = total_duration_var.count() / total_duration_fixed.count();
+
+    std::cout << std::fixed << std::setprecision(4);
+    std::cout << std::left << std::setw(14) << "Operation"
+              << std::setw(14) << "Var Time (us)"
+              << std::setw(14) << "Fixed Time (us)"
+              << std::setw(14) << "Var Percent"
+              << std::setw(14) << "Fixed Percent"
+              << "Speedup Ratio" << std::endl;
+
+    for (auto op : operations) {
+        double var_time = varTester.durations_[op].count() * 1000000;
+        double fixed_time = fixedTester.durations_[op].count() * 1000000;
+        double var_percent = (varTester.durations_[op].count() / total_duration_var.count()) * 100;
+        double fixed_percent = (fixedTester.durations_[op].count() / total_duration_fixed.count()) * 100;
+        double speedup_ratio = var_time / fixed_time;
+
+        std::cout << std::left << std::setw(14) << operation_names[op]
+                  << std::setw(14) << var_time
+                  << std::setw(14) << fixed_time
+                  << std::setw(14) << std::setprecision(1) << var_percent << "%"
+                  << std::setw(14) << fixed_percent << "%"
+                  << std::setprecision(4) << speedup_ratio << std::endl;
+    }
+
+    std::cout << std::left << std::setw(14) << "Total"
+              << std::setw(14) << total_duration_var.count() * 1000000
+              << std::setw(14) << total_duration_fixed.count() * 1000000
+              << std::setw(14) << ""
+              << std::setw(14) << ""
+              << total_speedup_ratio << std::endl;
+}
 
 int main() {
-  int num_enties = 10;
-  int key_length = 16;
-  int value_length = 8;
+  int num_enties = 5000;
+  int key_length = 1024;
+  int value_length = 1024;
+  
   SSTMergeTester varTester("C:/Users/86158/Desktop/Code/LSM/dbData/varDB", num_enties, key_length, value_length, SSTMergeTester::SSTType::VariableLength);
   varTester.TestMergeProcess();
 
   SSTMergeTester fixedTester("C:/Users/86158/Desktop/Code/LSM/dbData/fixedDB", num_enties, key_length, value_length, SSTMergeTester::SSTType::FixedLength);
   fixedTester.TestMergeProcess();
   
+  
+  //打印实验结果
+  print_comparative_durations(varTester.t_recorder_, fixedTester.t_recorder_);
   return 0;
 }
 

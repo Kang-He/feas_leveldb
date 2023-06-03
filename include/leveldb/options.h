@@ -114,12 +114,12 @@ struct LEVELDB_EXPORT Options {
   bool fix_block_enable = false;
 
   //LSM-tree distribution
-  int min_key_size = 16;
+  int min_key_size = 99;
   int max_key_size = 512;
-  int key_interval_size = 16;
-  int min_value_size = 16;
+  int key_interval_size = 30;
+  int min_value_size = 99;
   int max_value_size = 512;
-  int value_interval_size = 16;
+  int value_interval_size = 30;
   //feasdb params end
   
   
@@ -178,6 +178,9 @@ struct LEVELDB_EXPORT ReadOptions {
   // not have been released).  If "snapshot" is null, use an implicit
   // snapshot of the state at the beginning of this read operation.
   const Snapshot* snapshot = nullptr;
+
+  //时间计时器地址
+  char *t_recorder = nullptr;
 };
 
 // Options that control write operations
