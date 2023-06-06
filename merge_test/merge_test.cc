@@ -136,7 +136,7 @@ private:
         meta->file_size = 0;
         iter->SeekToFirst();
         std::string fname = TableFileName(dbname, meta->number);
-        cout << "fname = " << fname << endl;
+        std::cout << "fname = " << fname << endl;
         if (iter->Valid()) {
             //开始计时
             t_recorder_.start(TimeRecorder::Operation::COMP);
@@ -144,7 +144,8 @@ private:
             WritableFile* file;
             s = env->NewWritableFile(fname, &file);
             if (!s.ok()) {
-            return s;
+                std::cout << "s = " << s.ToString() << endl;
+                return s;
             }
             //如果是变长键值长度SST文件
             if(sst_type_ == SSTType::VariableLength){
@@ -481,14 +482,14 @@ void print_comparative_durations(TimeRecorder& varTester, TimeRecorder& fixedTes
 }
 
 int main() {
-  int num_enties = 5000;
-  int key_length = 1024;
-  int value_length = 1024;
+  int num_enties = 10000;
+  int key_length = 64;
+  int value_length = 64;
   
-  SSTMergeTester varTester("C:/Users/86158/Desktop/Code/LSM/dbData/varDB", num_enties, key_length, value_length, SSTMergeTester::SSTType::VariableLength);
+  SSTMergeTester varTester("/users/hys/exp/dbdata/ssdtest/varDB", num_enties, key_length, value_length, SSTMergeTester::SSTType::VariableLength);
   varTester.TestMergeProcess();
 
-  SSTMergeTester fixedTester("C:/Users/86158/Desktop/Code/LSM/dbData/fixedDB", num_enties, key_length, value_length, SSTMergeTester::SSTType::FixedLength);
+  SSTMergeTester fixedTester("/users/hys/exp/dbdata/ssdtest/fixedDB", num_enties, key_length, value_length, SSTMergeTester::SSTType::FixedLength);
   fixedTester.TestMergeProcess();
   
   

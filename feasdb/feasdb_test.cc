@@ -21,14 +21,14 @@ std::string random_string(std::size_t length) {
 
     return str;
 }
-void SingleTreeTest(bool fixed_enable){
+void SingleTreeTest(bool fixed_enable, const int num_entries, const int key_length, const int value_length){
     //输出传入参数
     std::cout << "fixed_enable: " << fixed_enable << std::endl;
     // Customize these parameters as needed.
-    const int num_entries = 100000;
+    //const int num_entries = 100000;
     const int seq_num_length = 8;
-    const int key_length = 128;
-    const int value_length = 128;
+    //const int key_length = 128;
+    //const int value_length = 128;
 
     leveldb::DB* db;
     leveldb::Options options;
@@ -36,7 +36,7 @@ void SingleTreeTest(bool fixed_enable){
     options.key_length = key_length + seq_num_length;
     options.value_length = value_length;
     options.fix_block_enable = fixed_enable;
-    leveldb::Status status = leveldb::DB::Open(options, "test_db", &db);
+    leveldb::Status status = leveldb::DB::Open(options, "/users/hys/exp/dbdata/ssdtest/test_db", &db);
     assert(status.ok());
 
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -76,10 +76,10 @@ std::string random_string_range(int min_length, int max_length) {
     return str;
 }
 
-void MultiTreeTest() {
+void MultiTreeTest(const int num_entries) {
   // Customize these parameters as needed.
-  const int num_entries = 500000;
-  std::string dbname = "C:/Users/86158/Desktop/Code/LSM/dbData/test_db_multi_tree";
+  //const int num_entries = 500000;
+  std::string dbname = "/users/hys/exp/dbdata/ssdtest/test_db_multi_tree";
   leveldb::FeasDBImpl* db;
   leveldb::Options options;
 
@@ -133,10 +133,10 @@ void MultiTreeTest() {
 
 }
 
-void MultiTreeCompareTest() {
+void MultiTreeCompareTest(const int num_entries) {
   // Customize these parameters as needed.
-  const int num_entries = 500000;
-  std::string dbname = "C:/Users/86158/Desktop/Code/LSM/dbData/test_db_multi_tree_compare";
+  //const int num_entries = 500000;
+  std::string dbname = "/users/hys/exp/dbdata/ssdtest/test_db_multi_tree_compare";
   leveldb::DB* db;
   leveldb::Options options;
   options.create_if_missing = true;
@@ -183,12 +183,28 @@ void MultiTreeCompareTest() {
 }
 
 
-int main() {
-    
+
+int main(int argc, char* argv[]) {
+    if (argc < 4) {
+        std::cout << "Usage: program_name <num_entries> <key_length> <value_length>" << std::endl;
+        return 1;
+    }
+
+    int num_entries = std::stoi(argv[1]);
+    int key_length = std::stoi(argv[2]);
+    int value_length = std::stoi(argv[3]);
+
+    std::cout << "num_entries: " << num_entries << std::endl;
+    std::cout << "key_length: " << key_length << std::endl;
+    std::cout << "value_length: " << value_length << std::endl;
+
+    // 在这里可以使用传递的参数进行你的操作
+
     //SingleTreeTest(false);
-    //SingleTreeTest(true);
-    //MultiTreeTest();
-    MultiTreeCompareTest();
+    //SingleTreeTest(true, num_entries, key_length, value_length);
+    SingleTreeTest(false, num_entries, key_length, value_length);
+    //MultiTreeTest(num_entries);
+    //MultiTreeCompareTest(num_entries);
 
     return 0;
 }
