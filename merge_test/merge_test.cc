@@ -63,7 +63,7 @@ public:
 
     void TestMergeProcess() {
         // 生成2个SST文件
-        //generate_two_sst_files();
+        generate_two_sst_files();
 
         // 开始计时
         t_recorder_.start(TimeRecorder::DECOMP);
